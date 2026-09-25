@@ -26,11 +26,16 @@ func head() -> Vector2i:
 
 ## Buffers up to two turns so quick key sequences (e.g. up-left) aren't lost.
 ## Reversal into the neck is rejected against the last queued direction.
-func queue_direction(dir: Vector2i) -> void:
+func queue_direction(dir: Vector2i) -> bool:
 	var last: Vector2i = direction if _turns.is_empty() else _turns.back()
 	if dir == last or dir == -last or _turns.size() >= 2:
-		return
+		return false
 	_turns.append(dir)
+	return true
+
+
+func has_pending_turn() -> bool:
+	return not _turns.is_empty()
 
 
 func force_direction(dir: Vector2i) -> void:
@@ -61,10 +66,18 @@ func occupies(cell: Vector2i) -> bool:
 	return body.has(cell)
 
 
-func advance() -> void:
+## Moves the head onto `cell` (normally next_head(); differs when wrapping).
+func advance(cell: Vector2i) -> void:
 	prev_body = body.duplicate()
-	body.push_front(next_head())
+	body.push_front(cell)
 	if grow_pending > 0:
 		grow_pending -= 1
 	else:
 		body.pop_back()
+
+
+## Cuts the snake down to `length` segments (Molt).
+func trim(length: int) -> void:
+	body.resize(length)
+	prev_body.resize(mini(prev_body.size(), length))
+	grow_pending = 0

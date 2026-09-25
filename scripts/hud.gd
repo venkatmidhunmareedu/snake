@@ -135,21 +135,24 @@ func _build_panel() -> void:
 	v.add_child(fill)
 	v.add_child(_divider())
 	v.add_child(_label("FIELD GUIDE", 11, Config.TEXT_DIM))
+	# Compact two-column grid; the tagline shows in the pickup banner.
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 3)
 	for p in game.powerups.catalog:
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		var glyph := _label(p.glyph, 16, _soft(p.color) * 1.25, true)
-		glyph.custom_minimum_size.x = 18
+		row.add_theme_constant_override("separation", 6)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var glyph := _label(p.glyph, 13, _soft(p.color) * 1.25, true)
+		glyph.custom_minimum_size.x = 22
 		glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		row.add_child(glyph)
-		var text := VBoxContainer.new()
-		text.add_theme_constant_override("separation", -2)
-		text.add_child(_label(p.display_name, 12, _soft(p.color)))
-		text.add_child(_label(p.tagline, 10, Config.TEXT_DIM))
-		row.add_child(text)
-		v.add_child(row)
+		row.add_child(_label(p.display_name, 10, _soft(p.color)))
+		grid.add_child(row)
+	v.add_child(grid)
 	v.add_child(_divider())
-	v.add_child(_label("ARROWS / WASD  steer     ESC / P  pause", 10, Config.TEXT_DIM))
+	v.add_child(_label("ARROWS / WASD  steer   ESC  pause   M  music", 10, Config.TEXT_DIM))
 
 
 func _build_overlays() -> void:
@@ -169,7 +172,7 @@ func _build_overlays() -> void:
 		_launch_hint,
 		_spacer(4),
 		_menu_best,
-		_label("ARROWS / WASD  steer     ESC / P  pause", 11, Config.TEXT_DIM),
+		_label("ARROWS / WASD  steer   ESC  pause   M  music", 11, Config.TEXT_DIM),
 	], 0.5)
 
 	_pause = _overlay(area, [
@@ -238,7 +241,7 @@ func _sync_active() -> void:
 			row.add_theme_constant_override("separation", 2)
 			var title := p.display_name + ("  ·  ARMED" if is_inf(p.duration) else "")
 			row.add_child(_label(title, 12, _soft(p.color), true))
-			var bar := _bar(p.color)
+			var bar := _bar(_soft(p.color) * 1.1)
 			row.add_child(bar)
 			_active_box.add_child(row)
 			_rows[id] = bar

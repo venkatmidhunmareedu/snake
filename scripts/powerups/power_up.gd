@@ -34,5 +34,10 @@ func warp_factor() -> float:
 	return 1.0
 
 
+## Whether an orb of this type may appear right now.
+func can_spawn(_game: Game) -> bool:
+	return true
+
+
 func is_instant() -> bool:
 	return duration <= 0.0

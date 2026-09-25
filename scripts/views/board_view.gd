@@ -13,7 +13,10 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	var rect := Config.board_rect().grow(4)
 	var base := Config.ACCENT
-	if game.state == Game.State.PLAYING and _near_wall():
+	if game.powerups.has(&"wormhole"):
+		# Edges become portals.
+		base = game.powerups.active[&"wormhole"].color * (0.8 + 0.4 * sin(game.time * 6.0))
+	elif game.state == Game.State.PLAYING and _near_wall():
 		base = base.lerp(Config.DANGER, 0.5 + 0.5 * sin(game.time * 18.0))
 	var pulse := 0.5 + 0.12 * sin(game.time * 2.0) + game.combo * 0.06
 	draw_rect(rect.grow(6), Color(base, 0.05), false, 10.0)

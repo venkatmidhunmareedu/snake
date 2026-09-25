@@ -47,9 +47,14 @@ confirm={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"physical_keycode":4194309), Object(InputEventKey,"physical_keycode":4194310), Object(InputEventKey,"physical_keycode":32)]
 }
+toggle_music={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":77)]
+}
 
 [rendering]
 
 viewport/hdr_2d=true
+rendering_device/vsync/swapchain_image_count=2
 anti_aliasing/quality/msaa_2d=2
 environment/defaults/default_clear_color=Color(0.008, 0.008, 0.03, 1)

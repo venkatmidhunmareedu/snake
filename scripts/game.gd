@@ -15,6 +15,9 @@ class Food:
 
 
 const BONUS_TTL := 7.0
+## A turn pressed once at least this much of the current step has elapsed is
+## applied immediately instead of waiting for the next tick.
+const EARLY_TURN_PROGRESS := 0.12
 const COMBO_BANNERS := {3: "NICE", 5: "STELLAR", 8: "GALACTIC"}
 
 var state := State.MENU
@@ -35,6 +38,8 @@ var time := 0.0
 var tick_progress := 0.0
 ## Seconds since the last state change.
 var state_time := 0.0
+## Bumped whenever a step happens early, so the snake view can smooth the jump.
+var early_steps := 0
 
 var hud: Hud
 var fx: Fx
@@ -83,6 +88,7 @@ func _build_scene() -> void:
 	_add_view(fx)
 
 	sfx = Sfx.new()
+	sfx.game = self
 	add_child(sfx)
 
 	var hud_layer := CanvasLayer.new()
@@ -139,8 +145,11 @@ func _launch() -> void:
 	hud.banner("LAUNCH", "grab the stars · ride the power-ups", Config.ACCENT)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.is_echo():
+		return
+	if event.is_action_pressed("toggle_music"):
+		sfx.toggle_music()
 		return
 	match state:
 		State.PLAYING:
@@ -148,13 +157,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				_set_state(State.PAUSED)
 				sfx.play(&"blip")
 			elif event.is_action_pressed("move_up"):
-				snake.queue_direction(Vector2i.UP)
+				_steer(Vector2i.UP)
 			elif event.is_action_pressed("move_down"):
-				snake.queue_direction(Vector2i.DOWN)
+				_steer(Vector2i.DOWN)
 			elif event.is_action_pressed("move_left"):
-				snake.queue_direction(Vector2i.LEFT)
+				_steer(Vector2i.LEFT)
 			elif event.is_action_pressed("move_right"):
-				snake.queue_direction(Vector2i.RIGHT)
+				_steer(Vector2i.RIGHT)
 		State.PAUSED:
 			if event.is_action_pressed("pause") or event.is_action_pressed("confirm"):
 				_set_state(State.PLAYING)
@@ -168,6 +177,18 @@ func _unhandled_input(event: InputEvent) -> void:
 					_launch()
 				elif event.is_action_pressed("pause") and not ai_mode:
 					_start(true)
+
+
+func _steer(dir: Vector2i) -> void:
+	var first := not snake.has_pending_turn()
+	if not snake.queue_direction(dir):
+		return
+	sfx.play(&"turn")
+	if first and tick_progress >= EARLY_TURN_PROGRESS:
+		_tick_accum = 0.0
+		tick_progress = 0.0
+		early_steps += 1
+		_tick()
 
 
 func _notification(what: int) -> void:
@@ -196,7 +217,7 @@ func _simulate(delta: float) -> void:
 		f.ttl -= delta
 		if f.ttl <= 0.0:
 			foods.remove_at(i)
-	if combo_timer > 0.0:
+	if combo_timer > 0.0 and not powerups.has(&"stasis"):
 		combo_timer -= delta
 		if combo_timer <= 0.0:
 			combo = 0
@@ -219,18 +240,20 @@ func _tick() -> void:
 	if ai_mode:
 		snake.force_direction(AiPilot.choose(self))
 	snake.consume_turn()
-	var next := snake.next_head()
+	var next := resolve(snake.next_head())
 	var food_i := _food_index(next)
 	if is_fatal(next, food_i >= 0 or snake.grow_pending > 0):
 		if not _try_shield():
 			_die()
 			return
-		next = snake.next_head()
+		next = resolve(snake.next_head())
 		food_i = _food_index(next)
 
 	if food_i >= 0:
 		snake.grow_pending += 1
-	snake.advance()
+	if next != snake.next_head():
+		sfx.play(&"wrap")
+	snake.advance(next)
 	_tick_count += 1
 
 	if food_i >= 0:
@@ -239,6 +262,15 @@ func _tick() -> void:
 		_collect_powerup()
 	if powerups.has(&"gravity") and _tick_count % 2 == 0:
 		_pull_food()
+	if powerups.has(&"lance"):
+		_fire_lance()
+
+
+## Wormhole: cells past an edge come out on the opposite side.
+func resolve(cell: Vector2i) -> Vector2i:
+	if powerups.has(&"wormhole"):
+		return Vector2i(posmod(cell.x, Config.GRID.x), posmod(cell.y, Config.GRID.y))
+	return cell
 
 
 func is_fatal(cell: Vector2i, growing: bool) -> bool:
@@ -257,7 +289,7 @@ func _try_shield() -> bool:
 	var best := Vector2i.ZERO
 	var best_space := -1
 	for side: Vector2i in [Vector2i(-d.y, d.x), Vector2i(d.y, -d.x)]:
-		var cell := snake.head() + side
+		var cell := resolve(snake.head() + side)
 		if is_fatal(cell, _food_index(cell) >= 0):
 			continue
 		var space := AiPilot.space_from(self, cell, 64)
@@ -287,16 +319,13 @@ func _eat(index: int) -> void:
 	combo = mini(combo + 1, Config.COMBO_MAX) if combo_timer > 0.0 else 1
 	combo_timer = Config.COMBO_WINDOW
 	var points := Config.FOOD_POINTS * combo * powerups.score_factor()
-	score += points
-	if not ai_mode and score > high_score:
-		high_score = score
-		new_record = true
+	_add_score(points)
 
 	var pos := Config.cell_center(f.cell)
 	var col := Config.BONUS_FOOD if f.bonus else Config.FOOD
 	fx.burst(pos, col, 16, 170.0)
 	fx.float_text(pos, "+%d" % points, col)
-	sfx.play(&"eat", 1.0 + (combo - 1) * 0.08)
+	sfx.play(&"bonus" if f.bonus else &"eat", 1.0 + (combo - 1) * 0.07)
 	if combo != prev_combo and COMBO_BANNERS.has(combo):
 		hud.banner("COMBO ×%d" % combo, COMBO_BANNERS[combo], Config.BONUS_FOOD)
 		sfx.play(&"combo")
@@ -304,13 +333,26 @@ func _eat(index: int) -> void:
 		_spawn_food()
 
 
+func _add_score(points: int) -> void:
+	score += points
+	if not ai_mode and score > high_score:
+		high_score = score
+		new_record = true
+
+
 func _collect_powerup() -> void:
 	var pos := Config.cell_center(powerups.orb.cell)
+	var rolled := powerups.orb.kind.id == &"quantum"
 	var p := powerups.collect(self)
 	fx.shockwave(pos, p.color, 140.0)
 	fx.burst(pos, p.color, 32, 280.0)
-	hud.banner(p.display_name, p.tagline, p.color)
-	sfx.play(&"powerup")
+	hud.banner(p.display_name, ("quantum roll · " if rolled else "") + p.tagline, p.color)
+	var sound := &"shield_up" if p.id == &"shield" else p.id
+	if rolled:
+		sfx.play(&"quantum")
+		sfx.play_later(sound, 0.33)
+	else:
+		sfx.play(sound)
 	_shake = maxf(_shake, 0.3)
 
 
@@ -327,11 +369,17 @@ func _die() -> void:
 	_set_state(State.GAME_OVER)
 	if not ai_mode:
 		_save_high_score()
+		if new_record:
+			sfx.play_later(&"record", 0.9)
 
 
 func on_powerup_expired(p: PowerUp) -> void:
 	sfx.play(&"expire")
 	fx.float_text(Config.cell_center(snake.head()), p.display_name + " OFF", Color(p.color, 0.8))
+
+
+func on_powerup_warning(_p: PowerUp) -> void:
+	sfx.play(&"warn")
 
 
 func on_orb_spawned() -> void:
@@ -392,6 +440,34 @@ func spawn_bonus_burst(count: int) -> void:
 		fx.burst(Config.cell_center(f.cell), Config.BONUS_FOOD, 8, 120.0)
 
 
+## Molt: shed ~40% of the growth as stardust, scoring for every segment.
+func molt() -> void:
+	var shed := int((snake.body.size() - Config.START_LENGTH) * 0.4)
+	if shed <= 0:
+		return
+	var pts := PackedVector2Array()
+	for i in shed:
+		pts.append(Config.cell_center(snake.body[snake.body.size() - 1 - i]))
+	snake.trim(snake.body.size() - shed)
+	var points := shed * 5 * powerups.score_factor()
+	_add_score(points)
+	fx.shatter(pts)
+	fx.float_text(Config.cell_center(snake.head()), "SHED %d  +%d" % [shed, points], Color(1.4, 2.4, 0.3))
+
+
+## Plasma Lance: eat every star in a straight line ahead of the head.
+func _fire_lance() -> void:
+	var cell := snake.head() + snake.direction
+	while Config.in_bounds(cell):
+		var i := _food_index(cell)
+		if i >= 0:
+			fx.burst(Config.cell_center(cell), Color(2.8, 0.5, 0.4), 12, 200.0)
+			sfx.play(&"zap")
+			snake.grow_pending += 1
+			_eat(i)
+		cell += snake.direction
+
+
 ## Gravity Well: every food steps one cell toward the head.
 func _pull_food() -> void:
 	var head := snake.head()
@@ -434,5 +510,6 @@ func _load_high_score() -> void:
 
 func _save_high_score() -> void:
 	var cfg := ConfigFile.new()
+	cfg.load(Config.SAVE_PATH) # keep other sections (audio settings)
 	cfg.set_value("scores", "high", high_score)
 	cfg.save(Config.SAVE_PATH)

@@ -11,6 +11,7 @@ const LAYERS := [
 ]
 
 var game: Game
+var _glow := Config.soft_dot()
 
 var _stars: Array[Dictionary] = []
 var _warp := 1.0
@@ -65,15 +66,16 @@ func _draw() -> void:
 		col.a = 1.0
 		if streak > 0.0:
 			var length: float = layer.speed * _warp * 0.06 * streak
-			draw_line(s.pos, s.pos + Vector2(length, 0), col, layer.size, true)
+			draw_line(s.pos, s.pos + Vector2(length, 0), col, layer.size)
 		else:
-			draw_circle(s.pos, layer.size, col, true, -1.0, true)
+			# Textured quads, not antialiased circles: ~20x cheaper per star.
+			var r: float = layer.size * 2.2
+			draw_texture_rect(_glow, Rect2(s.pos.x - r, s.pos.y - r, r * 2.0, r * 2.0), false, col)
 	for sh in _shooting:
 		var a: float = clampf(sh.life, 0.0, 1.0)
 		var dir: Vector2 = sh.vel.normalized()
-		draw_line(sh.pos - dir * 110.0, sh.pos, Color(0.6, 0.8, 1.2, 0.0), 1.5, true)
-		draw_line(sh.pos - dir * 45.0, sh.pos, Color(1.2, 1.4, 2.0, a), 2.0, true)
-		draw_circle(sh.pos, 1.8, Color(2.0, 2.2, 2.6, a), true, -1.0, true)
+		draw_line(sh.pos - dir * 45.0, sh.pos, Color(1.2, 1.4, 2.0, a), 2.0)
+		draw_texture_rect(_glow, Rect2(sh.pos - Vector2(5, 5), Vector2(10, 10)), false, Color(2.0, 2.2, 2.6, a))
 
 
 func _draw_planet(c: Vector2, r: float) -> void:

@@ -13,7 +13,7 @@ static func choose(game: Game) -> Vector2i:
 	var best := d
 	var best_score := -INF
 	for dir: Vector2i in [d, Vector2i(-d.y, d.x), Vector2i(d.y, -d.x)]:
-		var c := head + dir
+		var c := game.resolve(head + dir)
 		if game.is_fatal(c, false):
 			continue
 		var need := s.body.size() + 2
@@ -36,7 +36,7 @@ static func space_from(game: Game, start: Vector2i, cap: int) -> int:
 		var c := queue[i]
 		i += 1
 		for dir in DIRS:
-			var n := c + dir
+			var n := game.resolve(c + dir)
 			if seen.has(n) or not Config.in_bounds(n) or game.snake.occupies(n):
 				continue
 			seen[n] = true

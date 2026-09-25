@@ -51,16 +51,34 @@ static func board_rect() -> Rect2:
 	return Rect2(BOARD_ORIGIN, BOARD_SIZE)
 
 
-## Soft radial dot used as the texture for every particle system.
+static var _soft_dot: Texture2D
+static var _disc: Texture2D
+
+
+## Soft radial dot: particle texture and cheap glow halos.
 static func soft_dot() -> Texture2D:
+	if _soft_dot == null:
+		_soft_dot = _radial_texture(PackedFloat32Array([0.0, 1.0]), PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0)]))
+	return _soft_dot
+
+
+## Solid disc with an antialiased edge. Drawing this as a textured quad is far
+## cheaper than draw_circle(..., antialiased = true), which builds geometry on the CPU.
+static func disc() -> Texture2D:
+	if _disc == null:
+		_disc = _radial_texture(PackedFloat32Array([0.0, 0.94, 1.0]), PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]))
+	return _disc
+
+
+static func _radial_texture(offsets: PackedFloat32Array, colors: PackedColorArray) -> Texture2D:
 	var g := Gradient.new()
-	g.set_color(0, Color(1, 1, 1, 1))
-	g.set_color(1, Color(1, 1, 1, 0))
+	g.offsets = offsets
+	g.colors = colors
 	var tex := GradientTexture2D.new()
 	tex.gradient = g
 	tex.fill = GradientTexture2D.FILL_RADIAL
 	tex.fill_from = Vector2(0.5, 0.5)
 	tex.fill_to = Vector2(0.5, 0.0)
-	tex.width = 32
-	tex.height = 32
+	tex.width = 64
+	tex.height = 64
 	return tex

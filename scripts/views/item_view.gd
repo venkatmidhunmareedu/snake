@@ -36,6 +36,8 @@ func _draw() -> void:
 
 func _draw_planet(c: Vector2, orb: PowerUpManager.Orb, t: float) -> void:
 	var col := orb.kind.color
+	if orb.kind.id == &"quantum":
+		col = Color.from_hsv(fmod(t * 0.6, 1.0), 0.65, 2.2)
 	var s := clampf(orb.age * 4.0, 0.1, 1.0) * (1.0 + 0.08 * sin(t * 6.0))
 	var r := 11.0 * s
 	var dim := Color(col.r * 0.3, col.g * 0.3, col.b * 0.3)
@@ -52,7 +54,7 @@ func _draw_planet(c: Vector2, orb: PowerUpManager.Orb, t: float) -> void:
 	draw_arc(c, r, 0, TAU, 32, col, 1.5, true)
 	draw_polyline(ring.slice(24), col, 2.0, true)
 
-	draw_string(_font, c + Vector2(-20, 5), orb.kind.glyph, HORIZONTAL_ALIGNMENT_CENTER, 40, 13, Color(2.5, 2.5, 2.5))
+	draw_string(_font, c + Vector2(-20, 5), orb.kind.glyph, HORIZONTAL_ALIGNMENT_CENTER, 40, 13 if orb.kind.glyph.length() == 1 else 10, Color(2.5, 2.5, 2.5))
 	# Remaining lifetime.
 	var frac := orb.ttl / Config.POWERUP_LIFETIME
 	draw_arc(c, r + 12.0, -PI / 2.0, -PI / 2.0 + TAU * frac, 40, Color(col, 0.7), 2.0, true)
