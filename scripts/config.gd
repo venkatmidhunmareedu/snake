@@ -27,6 +27,9 @@ const POWERUP_LIFETIME := 8.0
 
 const SAVE_PATH := "user://cosmic_serpent.cfg"
 
+const AUTHOR := "Venkat Midhun Mareedu"
+const CREDIT_LINE := "created by " + AUTHOR
+
 # Palette
 const SNAKE_HEAD := Color(0.25, 1.05, 1.1)
 const SNAKE_TAIL := Color(0.6, 0.2, 1.15)

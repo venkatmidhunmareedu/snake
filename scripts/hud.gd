@@ -23,6 +23,7 @@ var _menu: Control
 var _menu_best: Label
 var _launch_hint: Label
 var _pause: Control
+var settings: SettingsPanel
 var _over: Control
 var _over_score: Label
 var _over_record: Label
@@ -62,10 +63,11 @@ func _process(delta: float) -> void:
 	_stats.text = "LENGTH %d    SPEED %.1f×" % [game.snake.body.size(), game.speed_multiplier()]
 	_sync_active()
 
-	_menu.visible = game.ai_mode
-	_pause.visible = game.state == Game.State.PAUSED
-	_over.visible = not game.ai_mode and game.state == Game.State.GAME_OVER and game.state_time > 0.7
-	_menu_best.text = "BEST  %d" % game.high_score
+	var in_settings := settings.visible
+	_menu.visible = game.ai_mode and not in_settings
+	_pause.visible = game.state == Game.State.PAUSED and not in_settings
+	_over.visible = not game.ai_mode and game.state == Game.State.GAME_OVER and game.state_time > 0.7 and not in_settings
+	_menu_best.text = "HIGH SCORE   %d" % game.high_score
 	_launch_hint.modulate.a = 0.4 + 0.6 * absf(sin(game.time * 2.4))
 	_over_score.text = "SCORE  %d" % game.score
 	_over_record.visible = game.new_record
@@ -107,7 +109,7 @@ func _build_panel() -> void:
 	panel.add_child(v)
 
 	v.add_child(_label("COSMIC SERPENT", 21, Color(0.35, 1.1, 1.2), true))
-	v.add_child(_label("deep space · sector 7", 11, Config.TEXT_DIM))
+	v.add_child(_label(Config.CREDIT_LINE, 11, Config.TEXT_DIM))
 	v.add_child(_divider())
 	v.add_child(_label("SCORE", 11, Config.TEXT_DIM))
 	_score = _label("000000", 42, Config.TEXT, true)
@@ -152,7 +154,8 @@ func _build_panel() -> void:
 		grid.add_child(row)
 	v.add_child(grid)
 	v.add_child(_divider())
-	v.add_child(_label("ARROWS / WASD  steer   ESC  pause   M  music", 10, Config.TEXT_DIM))
+	v.add_child(_label("ARROWS / WASD  steer    ESC  pause", 10, Config.TEXT_DIM))
+	v.add_child(_label("M  music    TAB  settings", 10, Config.TEXT_DIM))
 
 
 func _build_overlays() -> void:
@@ -163,33 +166,63 @@ func _build_overlays() -> void:
 	add_child(area)
 
 	_launch_hint = _label("PRESS ENTER TO LAUNCH", 20, Config.TEXT, true)
-	_menu_best = _label("", 13, Config.TEXT_DIM)
+	_menu_best = _label("", 14, Color(1.2, 1.05, 0.5), true)
+	var settings_button := _menu_button("SETTINGS")
+	settings_button.pressed.connect(func() -> void: settings.open())
 	_menu = _overlay(area, [
 		_label("COSMIC", 66, Color(0.35, 1.15, 1.25), true),
 		_label("SERPENT", 66, Color(1.0, 0.4, 1.2), true),
 		_label("navigate the void · devour the stars", 12, Config.TEXT_DIM),
-		_spacer(22),
+		_spacer(26),
 		_launch_hint,
-		_spacer(4),
+		_spacer(22),
+		_divider(),
+		_spacer(14),
+		_key_grid([
+			["ARROWS / WASD", "steer"],
+			["ESC / P", "pause"],
+			["M", "music on / off"],
+			["TAB", "settings"],
+		]),
+		_spacer(14),
+		settings_button,
+		_spacer(14),
+		_divider(),
+		_spacer(12),
 		_menu_best,
-		_label("ARROWS / WASD  steer   ESC  pause   M  music", 11, Config.TEXT_DIM),
-	], 0.5)
+		_spacer(6),
+		_label(Config.CREDIT_LINE.to_upper(), 11, Color(1.0, 0.55, 1.15), true),
+	], 0.95)
 
 	_pause = _overlay(area, [
 		_label("PAUSED", 54, Color(0.35, 1.1, 1.25), true),
-		_label("ESC or ENTER to resume", 12, Config.TEXT_DIM),
-	], 0.75)
+		_spacer(18),
+		_key_grid([
+			["ESC / ENTER", "resume"],
+			["M", "music on / off"],
+			["TAB", "settings"],
+		]),
+	], 0.9)
 
 	_over_score = _label("", 26, Config.TEXT, true)
 	_over_record = _label("— NEW RECORD —", 15, Color(1.2, 1.05, 0.5), true)
 	_over = _overlay(area, [
 		_label("SIGNAL LOST", 50, Color(1.25, 0.3, 0.45), true),
-		_spacer(8),
+		_spacer(10),
 		_over_score,
 		_over_record,
-		_spacer(14),
-		_label("ENTER  relaunch     ESC  menu", 12, Config.TEXT_DIM),
-	], 0.75)
+		_spacer(20),
+		_key_grid([
+			["ENTER", "relaunch"],
+			["ESC", "main menu"],
+			["TAB", "settings"],
+		]),
+	], 0.9)
+
+	settings = SettingsPanel.new()
+	settings.sfx = game.sfx
+	area.add_child(settings)
+	settings.build(self)
 
 
 func _build_banner() -> void:
@@ -220,12 +253,71 @@ func _overlay(parent: Control, children: Array, bg_alpha: float) -> Control:
 	center.add_child(panel)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
+	v.custom_minimum_size.x = 460
 	panel.add_child(v)
 	for c: Control in children:
 		if c is Label:
 			c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(c)
 	return center
+
+
+## Two aligned columns of key caps and what they do.
+func _key_grid(rows: Array) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 8)
+	for row in rows:
+		var cap := _keycap(row[0])
+		cap.size_flags_horizontal = Control.SIZE_SHRINK_END
+		grid.add_child(cap)
+		var action := _label(row[1], 12, Config.TEXT_DIM)
+		action.custom_minimum_size.x = 150
+		action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		grid.add_child(action)
+	return grid
+
+
+func _keycap(text: String) -> PanelContainer:
+	var cap := PanelContainer.new()
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.4, 0.9, 1.0, 0.08)
+	sb.border_color = Color(0.4, 0.9, 1.0, 0.45)
+	sb.set_border_width_all(1)
+	sb.border_width_bottom = 2
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	cap.add_theme_stylebox_override("panel", sb)
+	cap.add_child(_label(text, 11, Config.TEXT, true))
+	return cap
+
+
+func _menu_button(text: String) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE # Enter always launches; this is for the mouse
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.custom_minimum_size = Vector2(170, 34)
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_font_override("font", _bold)
+	b.add_theme_font_size_override("font_size", 12)
+	for state in ["normal", "hover", "pressed"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.3, 0.9, 1.0, {"normal": 0.08, "hover": 0.18, "pressed": 0.28}[state])
+		sb.border_color = Color(0.4, 1.0, 1.1, 0.5 if state == "normal" else 0.9)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(5)
+		b.add_theme_stylebox_override(state, sb)
+	b.add_theme_color_override("font_color", Config.TEXT)
+	b.add_theme_color_override("font_hover_color", Color(0.35, 1.1, 1.25))
+	b.add_theme_color_override("font_pressed_color", Color(0.35, 1.1, 1.25))
+	return b
 
 
 func _sync_active() -> void:

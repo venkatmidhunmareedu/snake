@@ -26,7 +26,7 @@ cat > ~/.local/share/applications/cosmic-serpent.desktop <<ENTRY
 [Desktop Entry]
 Type=Application
 Name=Cosmic Serpent
-Comment=A space snake game with power-ups
+Comment=A space snake game by Venkat Midhun Mareedu
 Exec="$DIR/CosmicSerpent.x86_64"
 Path=$DIR
 Icon=$DIR/icon.svg

@@ -5,7 +5,7 @@ config_version=5
 [application]
 
 config/name="Cosmic Serpent"
-config/description="A space-themed snake game with power-ups."
+config/description="A space-themed snake game with power-ups, created by Venkat Midhun Mareedu."
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
@@ -46,6 +46,10 @@ pause={
 confirm={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"physical_keycode":4194309), Object(InputEventKey,"physical_keycode":4194310), Object(InputEventKey,"physical_keycode":32)]
+}
+settings={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194306), Object(InputEventKey,"physical_keycode":79), Object(InputEventKey,"physical_keycode":48), Object(InputEventKey,"physical_keycode":4194438)]
 }
 toggle_music={
 "deadzone": 0.2,

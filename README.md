@@ -1,5 +1,7 @@
 # Cosmic Serpent
 
+*Created by **Venkat Midhun Mareedu***
+
 Cosmic Serpent is a snake game set in deep space. You steer a glowing star-snake, eat stars and chain combos. Twelve power-ups keep each run changing: Hyperdrive, Phase Shift, Gravity Well, Time Warp, Force Shield, Supernova, Wormhole, Molt, Stellar Surge, Stasis Field, Plasma Lance and Quantum.
 
 ## Controls
@@ -9,7 +11,8 @@ Cosmic Serpent is a snake game set in deep space. You steer a glowing star-snake
 | Arrow keys / WASD | Steer |
 | Esc / P | Pause (Esc on the game-over screen goes back to the menu) |
 | Enter / Space | Launch or relaunch |
-| M | Music on/off (remembered) |
+| M | Music on/off |
+| Tab (or O) | Settings: master, music and sound-effect volume (saved automatically). The menu also has a clickable SETTINGS button |
 
 ## Install on Windows
 
@@ -72,5 +75,7 @@ You need Godot 4.7.2 and its export templates. In the editor, install the templa
 `build.sh` exports both platforms and writes the release archives to `build/`. To run the game from source without building, use `godot --path .`.
 
 ## Credits
+
+**Created by Venkat Midhun Mareedu** ([@venkatmidhunmareedu](https://github.com/venkatmidhunmareedu)): game design and direction.
 
 The Orbitron font is by Matt McInerney and is licensed under the SIL Open Font License 1.1 (see `assets/fonts/OFL.txt`). All other graphics, the sound effects and the music are generated in code when the game starts.

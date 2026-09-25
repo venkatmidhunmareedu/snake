@@ -10,7 +10,7 @@ enum Wave { SINE, SQUARE, SAW, TRI, NOISE }
 
 const RATE := 22050
 const VOICES := 16
-const BPM := 116.0
+const BPM := 96.0
 
 ## Sounds that still play during the attract-mode demo on the title screen.
 const UI_SOUNDS: Array[StringName] = [&"launch", &"blip", &"record"]
@@ -20,8 +20,14 @@ const GAIN := {
 	&"zap": -6.0, &"wrap": -6.0, &"blip": -8.0,
 }
 
+## Default slider positions (0..1) for the settings screen.
+const DEFAULT_VOLUMES := {&"Master": 0.8, &"Music": 0.55, &"SFX": 0.8}
+
 var game: Game
 var music_enabled := true
+## Slider value per bus, 0..1. Applied as amplitude v² so the slider feels
+## even to the ear (see _apply_volume).
+var volumes: Dictionary = DEFAULT_VOLUMES.duplicate()
 
 var _streams: Dictionary[StringName, AudioStreamWAV] = {}
 var _players: Array[AudioStreamPlayer] = []
@@ -40,6 +46,8 @@ var _cancelled := false
 func _ready() -> void:
 	_setup_buses()
 	_load_settings()
+	for bus in volumes:
+		_apply_volume(bus)
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
 		p.bus = &"SFX"
@@ -47,7 +55,7 @@ func _ready() -> void:
 		_players.append(p)
 	_music = AudioStreamPlayer.new()
 	_music.bus = &"Music"
-	_music.volume_db = -7.0
+	_music.volume_db = -9.0
 	add_child(_music)
 
 	# Synthesis takes a few seconds of GDScript: keep it off the main thread.
@@ -94,7 +102,7 @@ func _process(delta: float) -> void:
 	# Muffled on the menu / pause / game over, full range while playing;
 	# the track speeds up under Hyperdrive and drags under Time Warp.
 	var playing := game.state == Game.State.PLAYING
-	var cutoff := 16000.0 if playing else 700.0
+	var cutoff := 5000.0 if playing else 650.0
 	var pitch := 1.0
 	if playing and game.powerups.has(&"hyperdrive"):
 		pitch = 1.08
@@ -105,10 +113,11 @@ func _process(delta: float) -> void:
 	_music.pitch_scale = lerpf(_music.pitch_scale, pitch, w)
 
 
-func play(sound: StringName, pitch := 1.0) -> void:
+## `force` plays even during the attract demo (e.g. settings previews).
+func play(sound: StringName, pitch := 1.0, force := false) -> void:
 	if not _effects_ready:
 		return
-	if game != null and game.ai_mode and not UI_SOUNDS.has(sound):
+	if not force and game != null and game.ai_mode and not UI_SOUNDS.has(sound):
 		return
 	if not _streams.has(sound):
 		return
@@ -131,7 +140,23 @@ func toggle_music() -> void:
 		_music.play()
 	else:
 		_music.stop()
-	_save_settings()
+	save_settings()
+
+
+func get_volume(bus: StringName) -> float:
+	return volumes.get(bus, 1.0)
+
+
+func set_volume(bus: StringName, value: float) -> void:
+	volumes[bus] = clampf(value, 0.0, 1.0)
+	_apply_volume(bus)
+
+
+func _apply_volume(bus: StringName) -> void:
+	var idx := AudioServer.get_bus_index(bus)
+	var v: float = volumes[bus]
+	AudioServer.set_bus_volume_db(idx, linear_to_db(maxf(v * v, 0.0001)))
+	AudioServer.set_bus_mute(idx, v <= 0.001)
 
 
 # --- Buses & settings ----------------------------------------------------------
@@ -163,12 +188,16 @@ func _load_settings() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(Config.SAVE_PATH) == OK:
 		music_enabled = bool(cfg.get_value("audio", "music", true))
+		for bus in volumes:
+			volumes[bus] = clampf(float(cfg.get_value("audio", "volume_" + String(bus).to_lower(), volumes[bus])), 0.0, 1.0)
 
 
-func _save_settings() -> void:
+func save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(Config.SAVE_PATH)
 	cfg.set_value("audio", "music", music_enabled)
+	for bus in volumes:
+		cfg.set_value("audio", "volume_" + String(bus).to_lower(), volumes[bus])
 	cfg.save(Config.SAVE_PATH)
 
 
@@ -337,7 +366,8 @@ func _build_powerup_sounds() -> void:
 # --- Music -------------------------------------------------------------------------
 
 ## An 8-bar A-minor synthwave loop: four-on-the-floor kick, snare, hats, a
-## pumping saw bass, an echoing square arpeggio and a soft pad.
+## Deliberately gentle so it sits under the effects: a soft thump, brushed
+## hats, a round filtered bass, an echoing triangle arpeggio and a warm pad.
 ## Runs on a worker thread; only touches its own buffers.
 func _render_music() -> PackedFloat32Array:
 	var beat := 60.0 / BPM
@@ -357,24 +387,23 @@ func _render_music() -> PackedFloat32Array:
 		var tones := [0, third, 7, 12]
 
 		for m in tones.slice(0, 3):
-			_note(mix, t0, bar * 0.98, _midi(root + 12 + m), 0, Wave.SAW, 0.08, 0.35, 0.6, 0.0, 0.005, 0.09)
+			_note(mix, t0, bar * 0.98, _midi(root + 12 + m), 0, Wave.SAW, 0.09, 0.6, 0.5, 0.0, 0.005, 0.05)
 		for e in 8:
 			var n := root + (12 if e % 2 == 1 else 0)
-			_note(mix, t0 + e * beat / 2.0, beat * 0.45, _midi(n), 0, Wave.SAW, 0.32, 0.003, 1.2, 0.0, 0.0, 0.14)
+			_note(mix, t0 + e * beat / 2.0, beat * 0.48, _midi(n), 0, Wave.TRI, 0.3, 0.01, 1.0, 0.0, 0.0, 0.08)
 		var pattern := [0, 1, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 2, 3, 1, 2]
 		for s in 16:
 			var m: int = tones[pattern[s]]
-			_note(arp, t0 + s * beat / 4.0, beat * 0.22, _midi(root + 24 + m), 0, Wave.SQUARE, 0.15, 0.002, 1.8, 0.0, 0.0, 0.35)
+			_note(arp, t0 + s * beat / 4.0, beat * 0.3, _midi(root + 24 + m), 0, Wave.TRI, 0.12, 0.008, 2.2, 0.0, 0.0, 0.25)
 
 		for q in 4:
 			var bt := t0 + q * beat
-			_note(mix, bt, 0.28, 150, 42, Wave.SINE, 0.4, 0.001, 2.5)
+			_note(mix, bt, 0.3, 90, 40, Wave.SINE, 0.22, 0.006, 2.5)
 			if q % 2 == 1:
-				_note(mix, bt, 0.18, 0, 0, Wave.NOISE, 0.16, 0.001, 2.5, 0.0, 0.0, 0.45)
-				_note(mix, bt, 0.1, 210, 180, Wave.TRI, 0.2, 0.001, 2.0)
-			_note(mix, bt + beat / 2.0, 0.04, 0, 0, Wave.NOISE, 0.07, 0.001, 2.0, 0.0, 0.0, 1.0)
+				_note(mix, bt, 0.2, 0, 0, Wave.NOISE, 0.05, 0.004, 2.5, 0.0, 0.0, 0.15)
+			_note(mix, bt + beat / 2.0, 0.05, 0, 0, Wave.NOISE, 0.025, 0.002, 2.0, 0.0, 0.0, 0.5)
 
-	_echo(arp, beat * 0.75, 0.35)
+	_echo(arp, beat * 0.75, 0.4)
 	for i in arp.size():
 		mix[i] += arp[i]
 	# Fold the ringing tail back onto the start so the loop is seamless.

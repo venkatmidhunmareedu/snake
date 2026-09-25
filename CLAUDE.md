@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**Cosmic Serpent**: a space-themed snake game written in Godot 4.7 (GDScript) that uses the Forward+ renderer. Hitting a wall or the snake's own body kills it. The game has six power-ups, a combo multiplier and a neon glow look. It has no tests.
+**Cosmic Serpent**, created by Venkat Midhun Mareedu (`Config.AUTHOR` / `CREDIT_LINE`, shown on the menu, side panel and settings screen), is a space-themed snake game written in Godot 4.7 (GDScript) that uses the Forward+ renderer. Hitting a wall or the snake's own body kills it. The game has twelve power-ups, a combo multiplier and a neon glow look. It has no tests.
 
 ## Commands
 
@@ -64,7 +64,7 @@ The order of creation is the draw order. There are no other scenes, and there ar
 - Power-up pickup sounds are keyed by power-up id, except the shield: its pickup is `shield_up`, and `shield` is the shield-breaking sound.
 - During the attract demo only the `UI_SOUNDS` play.
 - Buses are created in code: `SFX` (reverb), `Music` (a low-pass filter that `_process` opens while playing, with pitch changed by Hyperdrive and Time Warp) and a hard limiter on Master.
-- The `toggle_music` action (M) is saved in the `audio` section of the save file.
+- Volume sliders map to `Sfx.volumes` (0..1, applied as amplitude v², defaults in `DEFAULT_VOLUMES`). They're edited in `SettingsPanel` (`scripts/settings_panel.gd`, opened with the `settings` action (Tab; O, 0 and keypad 0 also work, because Orbitron draws O and 0 almost identically) or the menu's SETTINGS button, from the menu, pause and game-over screens) and saved with the music on/off setting (M) in the `audio` section of the save file. While the panel is open, `Game._input` passes input through to the GUI, except for close keys.
 - `Game._save_high_score()` loads the file before writing, so it keeps the other sections.
 - **Testing:** driver scripts that run player mode save the real high score. Back up and restore `user://cosmic_serpent.cfg` around them.
 
